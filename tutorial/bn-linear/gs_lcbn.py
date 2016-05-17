@@ -21,7 +21,7 @@ def get_inputfile():
 
     qe.control['prefix'] = "'bn'"
     qe.control['wf_collect'] = '.true.'
-    qe.system['ecutwfc'] = 60
+    qe.system['ecutwfc'] = 20
     qe.system['occupations'] = "'fixed'"
     qe.system['nat'] = 2
     qe.system['ntyp'] = 2

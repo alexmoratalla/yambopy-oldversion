@@ -3,7 +3,8 @@
 # Create a supercell with atoms displaced by phonons modes 
 #
 from __future__ import print_function, division
-from qepy import *
+from qepy    import *
+from yambopy import *
 import argparse
 from numpy import zeros, array, dot
 from cmath import exp, pi
@@ -120,16 +121,41 @@ def get_supercell(n_replicas,phonon_mode,n_atoms,displacement):
   sc.system['nat'] = n_replicas*natoms 
   return sc
 
-supercell = get_supercell(10,5,2,0.01)
+n_replicas   = 10
+phonon_mode  = 5
+n_atoms      = 2
+displacement = 0.01
 
-os.system('mkdir -p bse_sc')
+
+tag       = 'NR%dPM%dNA%dD%f' % (n_replicas,phonon_mode,n_atoms,displacement)
+supercell = get_supercell(n_replicas,phonon_mode,n_atoms,displacement)
+
+'''
+# Generation of the NSCF data files and QE calculation of the SC
+os.system( 'mkdir -p %s' % tag )
 supercell.control['prefix'] = '"bn_sc"'
-supercell.write('bse_sc/sc.scf')
+supercell.write('%s/sc.scf' % tag)
+os.system('cd %s; pw.x < sc.scf | tee scf.out' %tag)
+supercell.control['calculation'] = '"nscf"'
+supercell.system['nbnd']         = 10*n_replicas
+supercell.write('%s/sc.nscf' % tag)
+os.system('cd %s; pw.x < sc.nscf | tee nscf.out' %tag)
 
-os.system('cd bse_sc; pw.x < sc.scf | tee scf.out')
+# Bethe-Salpeter Calculation of the Supercell
+os.system('cd %s/bn_sc.save ; p2y -O ../bse'  % tag)
+os.system('cd %s/bse ; yambo'  % tag)
+'''
 
-
+# Input file for the BSE calculation
+y = YamboIn('yambo -b -o b -k sex -y d -V all -q',folder='%s/bse'%tag)
+y.write('%s/bse/yambo_run.in'%tag)
+y['FFTGvecs'] = [30,'Ry']
+y['NGsBlkXs'] = [1,'Ry']
+y['BndsRnXs'] = [1,30]
+y['BSEBands'] = [3,6]
+y['BEnSteps'] = 500
+y['BEnRange'] = [[0.0,6.0],'eV']
+y.arguments.append('WRbsWF')
+print(str(y))
 
 #print( str(supercell) )
-
-
