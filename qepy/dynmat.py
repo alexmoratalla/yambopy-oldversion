@@ -44,3 +44,44 @@ class DynmatIn():
             return string
         else:
             return ''
+
+
+"""
+Function to read the file matdyn.modes of quantum espresso and generate and array of phonon frequencies
+"""
+
+meVtocm = 8.06573
+
+def flo_str(x):
+  y=[]
+  for t in x.split():
+    try:
+      y.append(float(t))
+    except ValueError:
+      pass
+  return y
+
+# Reading of the frequencies and phonon vectors
+def reading_modes(name,natom,q):
+  nphon = natom*3
+  with open (name,'r') as myfile:
+    data_phon = myfile.readlines()
+  eig = []
+  vec = []
+  for j in xrange(q):
+    frec    = []
+    v_frec  = []
+    for i in xrange(nphon):
+      k=4 + j*(nphon*(natom+1)+5) + i*(natom+1)
+      y = flo_str(data_phon[k])
+      v_mode = []
+      for ii in xrange(1,natom+1):
+        z      = flo_str(data_phon[k+ii])
+        v_atom = array([complex(z[0],z[1]),complex(z[2],z[3]),complex(z[4],z[5])])
+        v_mode.append(v_atom)
+      v_frec.append(array(v_mode))
+      frec.append(y[1])
+    eig.append(frec)
+    vec.append(array(v_frec))
+  return eig, vec, nphon
+#################################################

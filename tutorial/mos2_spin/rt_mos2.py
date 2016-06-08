@@ -33,6 +33,7 @@ parser.add_argument('-p' ,'--pump')
 parser.add_argument('-d' ,'--dissipation')
 args = parser.parse_args()
 
+prefix   = 'mos2'
 p2y      = 'p2y'
 yambo    = 'yambo'
 yambo_rt = 'yambo_rt'
@@ -51,7 +52,7 @@ if not os.path.isdir('database'):
     os.mkdir('database')
 
 #check if the nscf cycle is present
-if os.path.isdir('nscf/si.save'):
+if os.path.isdir('nscf/%s.save'%prefix):
     print('nscf calculation found!')
 else:
     print('nscf calculation not found!')
@@ -60,7 +61,7 @@ else:
 #check if the SAVE folder is present
 if not os.path.isdir('database/SAVE'):
     print('preparing yambo database')
-    os.system('cd nscf/si.save; %s ;%s ; mv SAVE ../../database' % (p2y,yambo))
+    os.system('cd nscf/%s.save; %s ;%s ; mv SAVE ../../database' % (prefix,p2y,yambo))
 
 #check if the rt folder is present
 if os.path.isdir('%s/SAVE'%folder):
@@ -84,11 +85,6 @@ else:
   print 'Invalid calculation type'
   exit()
 
-# System Common variables NOW ARE THEY ONLY IN THE COLLISIONS?
-#run['FFTGvecs']  = [5,'Ha']
-#run['HARRLvcs']  = [5,'Ha'] # New Variable, ask DS
-#run['EXXRLvcs']  = [100,'mHa']  # Why must EXXRLvcs <= NGsBlkXs
-
 # Collision variables
 if args.collisions:
   run['FFTGvecs']  = [5,'Ha']
@@ -96,7 +92,7 @@ if args.collisions:
   run['EXXRLvcs']  = [100,'mHa']  # Equivalent to BSENGBlk in the BSE run-level
   run['NGsBlkXs']  = [100,'mHa']
   run['BndsRnXs' ] = [1,30]
-  run['COLLBands'] = [2,7]     # Bug in the Initizalization. Tell DS
+  run['COLLBands'] = [25,28]     # Bug in the Initizalization. Tell DS
   run.write('%s/03_COLLISION'%folder)
 
 # Common time-dependent variable
