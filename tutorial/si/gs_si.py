@@ -3,11 +3,19 @@
 # Run a Silicon groundstate calculation using Quantum Espresso
 #
 from __future__ import print_function
+import sys
 from qepy import *
+import argparse
 
 scf_kpoints  = [2,2,2]
 nscf_kpoints = [3,3,3]
 prefix = 'si'
+
+p = Path([ [[1.0,1.0,1.0],'G'],
+           [[0.0,0.5,0.5],'X'],
+           [[0.0,0.0,0.0],'G'],
+           [[0.5,0.0,0.0],'L']], [20,20,20])
+
 #
 # Create the input files
 #
@@ -63,6 +71,40 @@ def nscf():
     qe.kpoints = nscf_kpoints
     qe.write('nscf/%s.nscf'%prefix)
 
+def bands():
+    if not os.path.isdir('bands'):
+        os.mkdir('bands')
+    qe = get_inputfile()
+    qe.control['calculation'] = "'bands'"
+    qe.electrons['diago_full_acc'] = ".true."
+    qe.electrons['conv_thr'] = 1e-8
+    qe.system['nbnd'] = 8
+    qe.system['force_symmorphic'] = ".true."
+    qe.ktype = 'crystal'
+    qe.set_path(p)
+    qe.write('bands/%s.bands'%prefix)
+
+def phonons():
+    os.system('mkdir -p phonons')
+    ph = PhIn()
+    ph['prefix'] = "'%s'"     % prefix
+    ph['fildyn'] = "'%s.dyn'" % prefix
+    ph['ldisp']  = '.true.'
+    ph['trans']  = '.true.'
+    ph['nq1'], ph['nq2'], ph['nq3'] = 2, 2, 2
+    ph.write('phonons/%s.phonons'%prefix)
+
+def dispersion():
+    disp = DynmatIn()
+    disp['fildyn']= "'%s.dyn'" % prefix
+    disp['zasr']  = "'simple'" 
+    disp['flfrc'] = "'%s.fc'"  % prefix
+    disp.write('phonons/q2r.in')
+    os.system('cd phonons; ~/Software/espresso-5.1/bin/q2r.x < q2r.in')
+    dyn = DynmatIn()
+    dyn.set_path(p)
+    print(dyn)
+
 def update_positions(pathin,pathout):
     """ update the positions of the atoms in the scf file using the output of the relaxation loop
     """
@@ -77,23 +119,70 @@ def update_positions(pathin,pathout):
     q.write('%s/%s.scf'%(pathout,prefix))
 
 if __name__ == "__main__":
-    nproc = 1
+
+    #parse options
+    parser = argparse.ArgumentParser(description='Test the yambopy script.')
+    parser.add_argument('-r' ,'--relax',       action="store_true", help='Structural relaxation')
+    parser.add_argument('-s' ,'--scf',         action="store_true", help='Self-consistent calculation')
+    parser.add_argument('-n' ,'--nscf',        action="store_true", help='Non-self consistent calculation')
+    parser.add_argument('-n2','--nscf_double', action="store_true", help='Non-self consistent calculation for the double grid')
+    parser.add_argument('-b' ,'--bands',       action="store_true", help='Calculate band-structure')
+    parser.add_argument('-p' ,'--phonon',      action="store_true", help='Phonon calculation')
+    parser.add_argument('-d' ,'--dispersion',  action="store_true", help='Phonon dispersion')
+    parser.add_argument('-t' ,'--nthreads',    action="store_true", help='Number of threads', default=2 )
+    args = parser.parse_args()
+
+    if len(sys.argv)==1:
+        parser.print_help()
+        sys.exit(1)
 
     # create input files and folders
     relax()
     scf()
     nscf()
+    bands()
+    phonons()
+   
+    if args.relax: 
+        print("running relax:")
+        os.system("cd relax; mpirun -np %d pw.x -inp %s.scf > relax.log"%(args.nthreads,prefix))
+        update_positions('relax','scf')
+        print("done!")
 
-    print("running relax:")
-    os.system("cd relax; mpirun -np %d pw.x -inp %s.scf > relax.log"%(nproc,prefix))
-    update_positions('relax','scf')
-    print("done!")
+    if args.scf:
+        print("running scf:")
+        os.system("cd scf; mpirun -np %d pw.x -inp %s.scf > scf.log"%(args.nthreads,prefix))
+        print("done!")
 
-    print("running scf:")
-    os.system("cd scf; mpirun -np %d pw.x -inp %s.scf > scf.log"%(nproc,prefix))
-    print("done!")
+    if args.nscf:
+        print("running nscf:")
+        os.system("cp -r scf/%s.save nscf/"%prefix)
+        os.system("cd nscf; mpirun -np %d pw.x -inp %s.nscf > nscf.log"%(args.nthreads,prefix))
+        print("done!")
+    
+    if args.bands:
+        print("running bands:")
+        os.system("cp -r scf/%s.save bands/"%prefix)
+        os.system("cd bands; mpirun -np %d pw.x -inp %s.bands > bands.log"%(args.nthreads,prefix))
+        print("done!")
 
-    print("running nscf:")
-    os.system("cp -r scf/%s.save nscf/"%prefix)
-    os.system("cd nscf; mpirun -np %d pw.x -inp %s.nscf > nscf.log"%(nproc,prefix))
-    print("done!")
+    if args.phonon:
+        print("running phonons:")
+        os.system("cp -r scf/%s.save phonons/"%prefix)
+        os.system("cd phonons; mpirun -np %d ph.x -inp %s.phonons > phonons.log"%(args.nthreads,prefix))
+        print("done!")
+
+    if args.phonon:
+        print("running phonons:")
+        os.system("cp -r scf/%s.save phonons/"%prefix)
+        os.system("cd phonons; mpirun -np %d ph.x -inp %s.phonons > phonons.log"%(args.nthreads,prefix))
+        print("done!")
+
+    if args.dispersion:
+        print("running dispersion:")
+        dispersion()
+        print("done!")
+
+#        print("running plotting:")
+#        xml = PwXML(prefix='si',path='bands')
+#        xml.plot_eigen(p)
