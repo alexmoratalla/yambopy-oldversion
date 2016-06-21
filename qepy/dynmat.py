@@ -8,6 +8,8 @@ import os
 import re
 from math import sqrt
 
+meVtocm = 8.06573
+
 class DynmatIn():
     """ A class to generate an manipulate quantum espresso input files for matdyn.x
     """
@@ -45,14 +47,11 @@ class DynmatIn():
         else:
             return ''
 
-
 """
-Function to read the file matdyn.modes of quantum espresso and generate and array of phonon frequencies
+Convert a string in a float 
 """
 
-meVtocm = 8.06573
-
-def flo_str(x):
+def float_from_string(x):
   y=[]
   for t in x.split():
     try:
@@ -61,7 +60,10 @@ def flo_str(x):
       pass
   return y
 
-# Reading of the frequencies and phonon vectors
+"""
+Function to read the file matdyn.modes of quantum espresso and generate and array of phonon frequencies
+It depends on how the file is written by QE. Be aware of possible changes in the output
+"""
 def reading_modes(name,natom,q):
   nphon = natom*3
   with open (name,'r') as myfile:
@@ -76,7 +78,7 @@ def reading_modes(name,natom,q):
       y = flo_str(data_phon[k])
       v_mode = []
       for ii in xrange(1,natom+1):
-        z      = flo_str(data_phon[k+ii])
+        z      = float_from_string(data_phon[k+ii])
         v_atom = array([complex(z[0],z[1]),complex(z[2],z[3]),complex(z[4],z[5])])
         v_mode.append(v_atom)
       v_frec.append(array(v_mode))
@@ -84,4 +86,3 @@ def reading_modes(name,natom,q):
     eig.append(frec)
     vec.append(array(v_frec))
   return eig, vec, nphon
-#################################################
