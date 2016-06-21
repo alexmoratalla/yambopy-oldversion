@@ -7,6 +7,8 @@
 import os
 import re
 from math import sqrt
+from numpy import array
+from   qepy.auxiliary import *
 
 meVtocm = 8.06573
 
@@ -23,7 +25,7 @@ class DynmatIn():
         f.close()
 
     def __str__(self):
-        s = '&input'
+        s = '&input\n'
         s += self.stringify_group('',self.variable) #print variable
         if len(self.qpoints) > 0:
           s+=("%d\n"%len(self.qpoints))
@@ -47,42 +49,115 @@ class DynmatIn():
         else:
             return ''
 
-"""
-Convert a string in a float 
-"""
 
-def float_from_string(x):
-  y=[]
-  for t in x.split():
-    try:
-      y.append(float(t))
-    except ValueError:
-      pass
-  return y
+class Matdyn():
+    """ Class to read data from matdyn.modes files 
+    """
+    _datafile = 'matdyn.modes'
+    def __init__(self,natoms,nqpoints,path='.'):
+        self.path     = path
+        data_phon     = open("%s/%s"%(path, self._datafile),'r').readlines()
+        self.nmodes   = natoms*3
+        self.nqpoints = nqpoints
+        self.eigen, self.modes = [], []
+        for j in xrange(nqpoints):
+          frec, v_frec = [], []
+          for i in xrange(self.nmodes):
+            k=4 + j*(self.nmodes*(natoms+1)+5) + i*(natoms+1)
+            y = float_from_string(data_phon[k])
+            v_mode = []
+            for ii in xrange(1,natoms+1):
+              z      = float_from_string(data_phon[k+ii])
+              v_atom = array([complex(z[0],z[1]),complex(z[2],z[3]),complex(z[4],z[5])])
+              v_mode.append(v_atom)
+            v_frec.append(array(v_mode))
+            frec.append(y[1])
+          self.eigen.append(frec)
+          self.modes.append(array(v_frec))
 
-"""
-Function to read the file matdyn.modes of quantum espresso and generate and array of phonon frequencies
-It depends on how the file is written by QE. Be aware of possible changes in the output
-"""
-def reading_modes(name,natom,q):
-  nphon = natom*3
-  with open (name,'r') as myfile:
-    data_phon = myfile.readlines()
-  eig = []
-  vec = []
-  for j in xrange(q):
-    frec    = []
-    v_frec  = []
-    for i in xrange(nphon):
-      k=4 + j*(nphon*(natom+1)+5) + i*(natom+1)
-      y = flo_str(data_phon[k])
-      v_mode = []
-      for ii in xrange(1,natom+1):
-        z      = float_from_string(data_phon[k+ii])
-        v_atom = array([complex(z[0],z[1]),complex(z[2],z[3]),complex(z[4],z[5])])
-        v_mode.append(v_atom)
-      v_frec.append(array(v_mode))
-      frec.append(y[1])
-    eig.append(frec)
-    vec.append(array(v_frec))
-  return eig, vec, nphon
+    def plot_eigen(self,path=[]):
+        """ plot the phonon frequencies using matplotlib
+        """
+###################################################################################
+# Font selection and borders
+        plt.rc('text', usetex=True)
+        plt.rc('font', family='serif',serif="Computer Modern Roman",size=20)
+###################################################################################
+
+        if self.eigen is None:
+            print('Error')
+            #self.get_eigen()
+      
+        if path:
+            if isinstance(path,Path):
+                path = path.get_indexes()
+            plt.xticks( *zip(*path) )
+        plt.ylabel('\omega (cm$^{-1}$)')
+
+        #plot vertical line
+        for point in path:
+            x, label = point
+            plt.axvline(x)
+
+        #plot bands
+        eigen = array(self.eigen)
+        for ib in range(self.nmodes):
+           plt.plot(xrange(self.nqpoints),eigen[:,ib], 'r-', lw=2)
+        plt.show()
+  
+
+class Matdyn():
+    """ Class to read and plot the data from matdyn.modes files 
+    """
+    _datafile = 'matdyn.modes'
+    def __init__(self,natoms,nqpoints,path='.'):
+        self.path     = path
+        data_phon     = open("%s/%s"%(path, self._datafile),'r').readlines()
+        self.nmodes   = natoms*3
+        self.nqpoints = nqpoints
+        self.eigen, self.modes = [], []
+        for j in xrange(nqpoints):
+          frec, v_frec = [], []
+          for i in xrange(self.nmodes):
+            k=4 + j*(self.nmodes*(natoms+1)+5) + i*(natoms+1)
+            y = float_from_string(data_phon[k])
+            v_mode = []
+            for ii in xrange(1,natoms+1):
+              z      = float_from_string(data_phon[k+ii])
+              v_atom = array([complex(z[0],z[1]),complex(z[2],z[3]),complex(z[4],z[5])])
+              v_mode.append(v_atom)
+            v_frec.append(array(v_mode))
+            frec.append(y[1])
+          self.eigen.append(frec)
+          self.modes.append(array(v_frec))
+
+    def plot_eigen(self,path=[]):
+        """ plot the phonon frequencies using matplotlib
+        """
+###################################################################################
+# Font selection and borders
+        plt.rc('text', usetex=True)
+        plt.rc('font', family='serif',serif="Computer Modern Roman",size=20)
+###################################################################################
+
+        if self.eigen is None:
+            print('Error')
+            #self.get_eigen()
+      
+        if path:
+            if isinstance(path,Path):
+                path = path.get_indexes()
+            plt.xticks( *zip(*path) )
+        plt.ylabel('\omega (cm$^{-1}$)')
+
+        #plot vertical line
+        for point in path:
+            x, label = point
+            plt.axvline(x)
+
+        #plot bands
+        eigen = array(self.eigen)
+        for ib in range(self.nmodes):
+           plt.plot(xrange(self.nqpoints),eigen[:,ib], 'r-', lw=2)
+        plt.show()
+  

@@ -102,8 +102,15 @@ def dispersion():
     disp.write('phonons/q2r.in')
     os.system('cd phonons; ~/Software/espresso-5.1/bin/q2r.x < q2r.in')
     dyn = DynmatIn()
-    dyn.set_path(p)
-    print(dyn)
+    dyn['flfrc'] = "'%s.fc'" % prefix
+    dyn['asr']   = "'simple'"  
+    dyn['flfrq'] = "'%s.freq'" % prefix
+    dyn.qpoints = p.get_klist()
+    dyn.write('phonons/matdyn.in')
+    os.system('cd phonons; ~/Software/espresso-5.1/bin/matdyn.x < matdyn.in')
+   
+    # Use a class to read and plot the frequencies
+    Matdyn(natoms=2,nqpoints=61,path='phonons').plot_eigen(path=p)
 
 def update_positions(pathin,pathout):
     """ update the positions of the atoms in the scf file using the output of the relaxation loop

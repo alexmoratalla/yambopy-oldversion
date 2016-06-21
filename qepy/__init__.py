@@ -8,3 +8,4 @@ from qepy.pw import *
 from qepy.ph import *
 from qepy.dynmat import *
 from qepy.pwxml import *
+from qepy.auxiliary import *
