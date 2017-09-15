@@ -79,10 +79,12 @@ class Scheduler():
         import oar
         import pbs
         import bash
+        import slurm
         
         schedulers = { "oar":  oar.Oar,
                        "pbs":  pbs.Pbs,
-                       "bash": bash.Bash }
+                       "bash": bash.Bash,
+                       "slurm": slurm.Slurm}
             
         #load configurations file
         config = Scheduler.load_config()
@@ -103,6 +105,7 @@ class Scheduler():
         elif "oar"  in schedulername: schedulertype = "oar"
         elif "pbs"  in schedulername: schedulertype = "pbs"
         elif "bash" in schedulername: schedulertype = "bash"
+        elif "slurm" in schedulername: schedulertype = "slurm"
         else:
             raise ValueError("Could not determine the scheduler type. "
                              "Please specify it in the name of the scheduler or using the 'type' tag.")

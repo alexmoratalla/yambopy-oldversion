@@ -10,12 +10,14 @@ commands on different environments (clusters, local computers, etc..)
 
  **Currently available schedulers are:**
 
- * bash: Execute the job in the bash
- * oar : Use the OAR scheduler
- * pbs : Use the PBS scheduler
+ * bash  : Execute the job in the bash
+ * oar   : Use the OAR scheduler
+ * pbs   : Use the PBS scheduler
+ * slurm : Use the SLURM scheduler
 
 """
 from schedulerpy.scheduler import *
 from schedulerpy.pbs import *
 from schedulerpy.oar import *
 from schedulerpy.bash import *
+from schedulerpy.slurm import *
