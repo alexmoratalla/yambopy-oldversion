@@ -44,9 +44,11 @@ class YamboOut():
             logdir = os.listdir(folder+"/LOG")
         else:
             logdir = outdir
-
-        tags = ['refl','eel','eps','qp','sf']
-        self.output = ["%s"%f for f in outdir if f[:2] == 'o-' and any([tag in f for tag in tags]) and 'xsf' not in f]
+        tags = ['refl','eel','eps','qp','sf','carriers','polarization','external']
+        # Problem in the name of variable inside the file external_field
+        #self.output = ["%s"%f for f in outdir if f[:2] == 'o-' and any([tag in f for tag in tags]) and 'xsf' not in f]
+        #Line 49: Why the xsf condition? This makes the subroutine to fail
+        self.output = ["%s"%f for f in outdir if f[:2] == 'o-' and any([tag in f for tag in tags])]
         self.run    = ["%s"%f for f in outdir if f[:2] == 'r-']
         self.logs   = ["/LOG/%s"%f for f in logdir]
 
@@ -106,13 +108,14 @@ class YamboOut():
         """
         #open all the o-* files
         files = [open("%s/%s"%(self.folder,f)) for f in self.output]
-
         self.data = {}
         self.tags = {}
+        print self.output,files
         for filename,f in zip(self.output,files):
             #get the string with the file data
             try:
                 string = f.read()
+                # Check this regexp
                 tags = [tag.strip() for tag in re.findall('#\n#\s+((?:(?:[`0-9a-zA-Z\-\/\|\\(\)\_[\]]+)\s+)+)#\n\s',string)[0].split()]
                 f.seek(0)
                 self.data[filename] = np.loadtxt(f)
