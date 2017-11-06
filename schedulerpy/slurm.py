@@ -42,9 +42,9 @@ class Slurm(Scheduler):
         get a .pbs file to be submitted using qsub
         qsub <filename>.pbs
         """
-        s = '#!/bin/bash -l \\n'
-        s += '#SBATCH -p batch \\n'
-        s += '#SBATCH --qos=qos-batch \\n'
+        s = '#!/bin/bash -l \n'
+        s += '#SBATCH -p batch \n'
+        s += '#SBATCH --qos=qos-batch \n'
         #s += self.get_commands()
         return s
         
