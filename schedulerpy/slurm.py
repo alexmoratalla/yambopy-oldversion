@@ -22,7 +22,7 @@ class Slurm(Scheduler):
         args = self.arguments
          
         if self.name:  args.append("#SBATCH -J \"%s\"\n"%self.name)
-        
+        if self.get_arg("name"): args.append("")
         resources_line = self.get_resources_line()
         if resources_line:
             args.append(resources_line)
@@ -34,6 +34,8 @@ class Slurm(Scheduler):
         s = " "
         if self.nodes: s = "#SBATCH -n %d\n"                % (self.nodes)
         #if self.ntask: s += "#SBATCH --ntasks-per-node=%d\n" % (self.ntask)
+        #if self.memory: s = "#SBATCH --memory %d" %(self.memory)
+        #if self.memory_per_cpu: s = "#SBATCH --memory-per-cpu %d" %(self.memory_per_cpu)
         s += "#SBATCH --time=0-%s" % self.walltime
         return s
     
@@ -45,9 +47,9 @@ class Slurm(Scheduler):
         s = '#!/bin/bash -l \n'
         s += '#SBATCH -p batch \n'
         s += '#SBATCH --qos=qos-batch \n'
-        #s += self.get_commands()
+        s += self.get_commands()
         return s
-        
+
     def get_bash(self):
         """
         get a bash command to submit the job
