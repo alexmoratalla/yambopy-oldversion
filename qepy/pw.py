@@ -159,6 +159,13 @@ class PwIn(object):
         if 'atypes'  in structure: self.set_atypes(structure['atypes'])
         if 'atoms'   in structure: self.set_atoms(structure['atoms'])
         if 'occupations' in structure: self.set_occupations(structure['occupations'])
+        # New function
+        # Introduce the group of variables (under development)
+        # The best is to do a general function (to be done)
+        if 'electrons' in structure: self.set_electrons(structure['electrons'])
+        if 'system'    in structure: self.set_system(structure['system'])
+        if 'ions'      in structure: self.set_ions(structure['ions'])
+        if 'cell'      in structure: self.set_cell(structure['cell'])
 
     def get_structure(self):
         """ Return an instance of a structure dictionary
@@ -247,6 +254,50 @@ class PwIn(object):
         if 'degauss'  in occupations: self.system['degauss']  = occupations['degauss'] 
         if 'nbnd'     in occupations: self.system['nbnd']     = occupations['nbnd']
 
+    def set_electrons(self,electrons):
+        # I have include variables of type string, int or float
+        # Maybe not the most elegant
+        for variable in electrons.keys():
+            if type(electrons[variable]) is str:
+               self.electrons[variable] = "'%s'" % electrons[variable]
+               print('is string')
+            elif type(electrons[variable]) is int or float:
+               print('is a number')
+               self.electrons[variable] = electrons[variable]
+
+    def set_system(self,system):
+        # I have include variables of type string, int or float
+        # Maybe not the most elegant
+        for variable in system.keys():
+            if type(system[variable]) is str:
+               self.system[variable] = "'%s'" % system[variable]
+               print('is string')
+            elif type(system[variable]) is int or float:
+               print('is a number')
+               self.system[variable] = system[variable]
+
+    def set_ions(self,ions):
+        # I have include variables of type string, int or float
+        # Maybe not the most elegant
+        for variable in ions.keys():
+            if type(ions[variable]) is str:
+               self.ions[variable] = "'%s'" % ions[variable]
+               print('is string')
+            elif type(ions[variable]) is int or float:
+               print('is a number')
+               self.ions[variable] = ions[variable]
+
+    def set_cell(self,cell):
+        # I have include variables of type string, int or float
+        # Maybe not the most elegant
+        for variable in cell.keys():
+            if type(cell[variable]) is str:
+               self.cell[variable] = "'%s'" % cell[variable]
+               print('is string')
+            elif type(cell[variable]) is int or float:
+               print('is a number')
+               self.cell[variable] = cell[variable]
+
     def update_structure_from_xml(self,pwxml):
         """
         Update input from an PW xml file. Useful for relaxation.
@@ -286,10 +337,13 @@ class PwIn(object):
         set the calculation to be relax
         """
         self.control['calculation'] = "'relax'"
-        self.ions['ion_dynamics']  = "'bfgs'"
+
+        # You don't need it (is default)
+        #self.ions['ion_dynamics']  = "'bfgs'" 
         if cell_dofree:
             self.control['calculation'] = "'vc-relax'"
-            self.cell['cell_dynamics']  = "'bfgs'"
+            # You don't need it (is default)
+            #self.cell['cell_dynamics']  = "'bfgs'"
             self.cell['cell_dofree'] = "'%s'"%cell_dofree
         return self
 
