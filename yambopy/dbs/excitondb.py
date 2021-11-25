@@ -119,9 +119,12 @@ class YamboExcitonDB(YamboSaveDB):
         transitions_v_to_c = dict([ ((v,c),[]) for v,c in product(uniq_v,uniq_c) ])
 
         #add elements to dictionary
+        kidx = set()
         for eh,kvc in enumerate(self.table-1):
-            k,v,c = kvc 
+            k,v,c = kvc
+            kidx.add(k)
             transitions_v_to_c[(v,c)].append((k,eh))
+        self.nkpoints = len(kidx)
 
         #make an array 
         for t,v in list(transitions_v_to_c.items()):
@@ -197,7 +200,7 @@ class YamboExcitonDB(YamboSaveDB):
         """
         get the intensities of the excitons
         """
-        intensities = abs2(self.l_residual*self.r_residual)
+        intensities = self.l_residual*self.r_residual
         intensities /= np.max(intensities)
         return intensities
 
