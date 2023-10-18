@@ -5,6 +5,7 @@
 #
 from netCDF4 import Dataset
 import numpy as np
+from yambopy.tools.string import marquee
 from itertools import product
 import collections
 ha2ev  = 27.211396132
@@ -138,6 +139,11 @@ class YamboElectronsDB():
         """
         Calculate the density of states.
         Should work for metals as well but untested for that case
+
+        It can be used with QP values:
+           - Instance yamboQPDB
+           - set self.eigenvalues_ibz = yqp.eigenvalues_qp
+           - TODO: provide QP broadening QP_broad=yqp.lifetimes
         """
         eigenvalues = self.eigenvalues_ibz
         weights = self.weights_ibz
@@ -160,7 +166,7 @@ class YamboElectronsDB():
 
         transitions = np.zeros([nkpoints,nvalence*nconduction])
         for k,v,c in product(range(nkpoints),range(nvalence),range(nconduction)):
-            vc = v*nvalence+c
+            vc = v*nconduction+c
             transitions[k,vc] = eigenvalues[k,c+nvalence]-eigenvalues[k,v]
         self.transitions = transitions
 
@@ -251,7 +257,7 @@ class YamboElectronsDB():
         weights     = self.weights_ibz
         nkpoints    = self.nkpoints_ibz
 
-        nbands = self.nelectrons/self.spin_degen
+        nbands = int(self.nelectrons/self.spin_degen)
         #top of valence
         top = np.max(eigenvalues[:,nbands])
         #bottom of conduction
@@ -261,12 +267,16 @@ class YamboElectronsDB():
 
     def energy_gaps(self,GWshift=0.):
         """
-        Calculate the enegy of the gap (by Fulvio Paleari)
+        Calculate the enegy of the gap and apply custom rigid shift
         """
         eiv = self.eigenvalues
         nv  = self.nbandsv
         nc  = self.nbandsc
 
+        # First apply shift if there is one
+        eiv[:,nv:]+=GWshift
+
+        # Then compute gaps
         homo = np.max(eiv[:,nv-1])
         lumo = np.min(eiv[:,nv])
         Egap = lumo-homo
@@ -274,7 +284,6 @@ class YamboElectronsDB():
             if k[nv-1]==homo:
                 lumo_dir=k[nv]
         Edir = lumo_dir-homo
-        eiv[:,nv:]+=GWshift
 
         print('DFT Energy gap: %s eV'%Egap)
         print('DFT Direct gap: %s eV'%Edir)
@@ -307,9 +316,10 @@ class YamboElectronsDB():
         return self.efermi
 
     def __str__(self):
-        s = ""
-        s += "spin_degen: %d\n"%self.spin_degen
-        s += "nelectrons: %d\n"%self.nelectrons
-        s += "nbands:   %d\n"%self.nbands
-        s += "nkpoints: %d"%self.nkpoints
-        return s
+        lines = []; app = lines.append
+        app(marquee(self.__class__.__name__))
+        app("spin_degen: %d"%self.spin_degen)
+        app("nelectrons: %d"%self.nelectrons)
+        app("nbands:   %d"%self.nbands)
+        app("nkpoints: %d"%self.nkpoints)
+        return "\n".join(lines)

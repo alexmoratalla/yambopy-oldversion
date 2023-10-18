@@ -15,6 +15,7 @@ __all__ = ['PwXML']
 HatoeV = 27.2107
 
 class PwXML():
+    # This class reads up to version 6.7
     """ Class to read data from a Quantum espresso XML file
     """
     _eig_xml   = 'eigenval.xml'
@@ -112,6 +113,9 @@ class PwXML():
         for i in range(self.nkpoints):
           k_aux = self.datafile_xml.findall('BRILLOUIN_ZONE/K-POINT.%d'%(i+1))[0].get('XYZ')
           self.kpoints.append([float(x) for x in k_aux.strip().split()])
+        
+        #get fermi
+        self.fermi = float(self.datafile_xml.find("BAND_STRUCTURE_INFO/FERMI_ENERGY").text)*HatoeV
  
         #get eigenvalues
 
@@ -120,9 +124,9 @@ class PwXML():
            eigen = []
            for ik in range(self.nkpoints):
                for EIGENVALUES in ET.parse( "%s/%s.save/K%05d/%s" % (self.path,self.prefix,(ik + 1),self._eig_xml) ).getroot().findall("EIGENVALUES"):
-                   eigen.append(list(map(float, EIGENVALUES.text.split())))
-           self.eigen  = eigen
-           self.eigen1 = eigen
+                   eigen.append(list(map(float,EIGENVALUES.text.split())*HatoeV))
+           self.eigen  = eigen - self.fermi
+           self.eigen1 = eigen - self.fermi
 
         #get eigenvalues of spin up & down
 
@@ -130,13 +134,13 @@ class PwXML():
            eigen1, eigen2 = [], []
            for ik in range(self.nkpoints):
                for EIGENVALUES1 in ET.parse( "%s/%s.save/K%05d/%s" % (self.path,self.prefix,(ik + 1),self._eig1_xml) ).getroot().findall("EIGENVALUES"):
-                    eigen1.append(list(map(float, EIGENVALUES1.text.split())))
+                    eigen1.append(list(map(float, EIGENVALUES1.text.split())*HatoeV))
                for EIGENVALUES2 in ET.parse( "%s/%s.save/K%05d/%s" % (self.path,self.prefix,(ik + 1),self._eig2_xml) ).getroot().findall("EIGENVALUES"):
-                    eigen2.append(list(map(float, EIGENVALUES2.text.split())))
+                    eigen2.append(list(map(float, EIGENVALUES2.text.split())*HatoeV))
 
-           self.eigen   = eigen1
-           self.eigen1  = eigen1
-           self.eigen2  = eigen2
+           self.eigen   = eigen1 - self.fermi
+           self.eigen1  = eigen1 - self.fermi
+           self.eigen2  = eigen2 - self.fermi
 
         #get occupations of spin up & down
         if self.lsda:
@@ -149,9 +153,6 @@ class PwXML():
         
            self.occupation1 = occ1
            self.occupation2 = occ2
-        
-        #get fermi
-        self.fermi = float(self.datafile_xml.find("BAND_STRUCTURE_INFO/FERMI_ENERGY").text)
 
         #get Bravais Lattice
         self.bravais_lattice = str(self.datafile_xml.find("CELL/BRAVAIS_LATTICE").text)
@@ -246,20 +247,19 @@ class PwXML():
             kpoint = [float(x) for x in kstates[i].findall('k_point')[0].text.strip().split()]
             self.kpoints.append( kpoint )
 
+        #get fermi (it depends on the occupations)
+        if self.occ_type == 'fixed':
+           self.fermi = float(self.datafile_xml.find("output/band_structure/highestOccupiedLevel").text)*HatoeV
+        else:
+           self.fermi = float(self.datafile_xml.find("output/band_structure/fermi_energy").text)*HatoeV
+
         #get eigenvalues
         self.eigen1 = []
         for k in range(self.nkpoints):
             eigen = [float(x) for x in kstates[k].findall('eigenvalues')[0].text.strip().split()]
             self.eigen1.append( eigen )
-        self.eigen1 = np.array(self.eigen1)
+        self.eigen1 = np.array(self.eigen1)*HatoeV - self.fermi
  
-        #get fermi
-        # it depends on the occupations
-        if self.occ_type == 'fixed':
-           self.fermi = float(self.datafile_xml.find("output/band_structure/highestOccupiedLevel").text)
-        else:
-           self.fermi = float(self.datafile_xml.find("output/band_structure/fermi_energy").text)
-    
         #get Bravais lattice
         self.ibrav = self.datafile_xml.findall("output/atomic_structure")[0].get('bravais_index')
 
@@ -329,7 +329,6 @@ class PwXML():
         ls = kwargs.pop('ls','solid')
         lw = kwargs.pop('lw',1)
         y_offset = kwargs.pop('y_offset',0.0)
-        print(y_offset)
         #get kpoint_dists 
         kpoints_dists = calculate_distances(self.kpoints)
         ticks, labels = list(zip(*path_kpoints))
@@ -348,25 +347,28 @@ class PwXML():
            eigen1 = np.array(self.eigen1)
 
            for ib in range(self.nbands_up):
-               ax.plot(kpoints_dists,eigen1[:,ib]*HatoeV - self.fermi*HatoeV, '%s-'%color, lw=2, zorder=1)
-               ax.plot(kpoints_dists,eigen1[:,ib+self.nbands_up]*HatoeV
-                       - self.fermi*HatoeV+y_offset, 'b-', lw=2, zorder=1)
+               ax.plot(kpoints_dists,eigen1[:,ib]                + y_offset, '%s-'%color, lw=lw, zorder=1,label='spin-up') # spin-up 
+               ax.plot(kpoints_dists,eigen1[:,ib+self.nbands_up] + y_offset, 'b-', lw=lw, zorder=1,label='spin-down') # spin-down
+
+           import matplotlib.pyplot as plt
+           handles, labels = plt.gca().get_legend_handles_labels()
+           by_label = dict(zip(labels, handles))
+           plt.legend(by_label.values(), by_label.keys())
 
         # Case: Non spin polarization
         else:
            eigen1 = np.array(self.eigen1)
 
            for ib in range(self.nbands):
-               ax.plot(kpoints_dists,eigen1[:,ib]*HatoeV
-                       - self.fermi*HatoeV+y_offset,
-                       color=color, linestyle=ls ,zorder =1)
+               ax.plot(kpoints_dists,eigen1[:,ib] + y_offset, color=color,linestyle=ls , lw=lw, zorder =1)
 
         #plot options
         if xlim: ax.set_xlim(xlim)
         if ylim: ax.set_ylim(ylim)
 
      
-    def plot_eigen_spin_ax(self,ax,path_kpoints=[],xlim=(),ylim=(),spin_proj=None):
+    #def plot_eigen_spin_ax(self,ax,path_kpoints=[],xlim=(),ylim=(),spin_proj=None):
+    def plot_eigen_spin_ax(self,ax,path_kpoints=[],xlim=(),ylim=(),spin_proj=False,spin_folder='.'):
         #
         # Careful with variable path. I am substituting vy path_kpoints
         # To be done in all the code (and in the tutorials)
@@ -376,6 +378,11 @@ class PwXML():
         
         import matplotlib.pyplot as plt
         self.spin_proj = np.array(spin_proj) if spin_proj is not None else None 
+
+        if spin_proj == True:
+           self.spin_projection(spin_dir=3,folder=spin_folder,prefix='bands')
+           print(self.spin_3)
+        exit()
 
         if path_kpoints:
             if isinstance(path_kpoints,Path):
@@ -405,7 +412,7 @@ class PwXML():
         eigen1 = np.array(self.eigen1)
         for ib in range(self.nbands):
             x = kpoints_dists
-            y = eigen1[:,ib]*HatoeV - self.fermi*HatoeV
+            y = eigen1[:,ib] - self.fermi
             color_spin = self.spin_proj[:,ib] + 0.5 # I renormalize 0 => down; 1 => up
             ax.scatter(x,y,s=100,c=color_spin,cmap=color_map,vmin=0.0,vmax=1.0,edgecolors='none')
        
@@ -450,7 +457,7 @@ class PwXML():
         eigen1 = np.array(self.eigen1)
         occ1   = np.array(self.occupation1)
         for ib in range(self.nbands):
-            plt.scatter(kpoints_dists,eigen1[:,ib]*HatoeV - self.fermi*HatoeV, s=10*occ1[:,ib],c=color)
+            plt.scatter(kpoints_dists,eigen1[:,ib] - self.fermi, s=10*occ1[:,ib],c=color)
        
         #plot spin-polarized bands
         if self.lsda:
@@ -458,7 +465,7 @@ class PwXML():
            eigen2 = np.array(self.eigen2)
            occ2   = np.array(self.occupation1)
            for ib in range(self.nbands):
-               plt.scatter(kpoints_dists,eigen2[:,ib]*HatoeV - self.fermi*HatoeV, s=10*occ2[:,ib],c='b')
+               plt.scatter(kpoints_dists,eigen2[:,ib] - self.fermi, s=10*occ2[:,ib],c='b')
 
 
         #plot options
@@ -482,7 +489,7 @@ class PwXML():
             f = open('%s.dat'%self.prefix,'w')
             for ib in range(self.nbands):
                 for ik in range(self.nkpoints):
-                    f.write("%.1lf %.4lf \n " % (ik,self.eigen1[ik][ib]*HatoeV) )
+                    f.write("%.1lf %.4lf \n " % (ik,self.eigen1[ik][ib]) )
                 f.write("\n")
             f.close()
         else:
@@ -513,4 +520,121 @@ class PwXML():
                 ib1, ib2, ib3 = int(ib*10), int((ib+1)*10), int(ik*(nband/10+1)+2+ib)
                 self.spin_3[ik,ib1:ib2] = list( map(float,data_spin_3[ib3].split()))
 
+    def read_symmetries(self):
+        """
+        Read symmetry operations from data-file-schema.xml
 
+        Works for ibrav>0
+
+        NB: data-file-schema.xml has nrot and nsym with nsym<nrot.
+            They are stored in order with nsym first.
+
+        NB2: Most likely not working with symmorphic symmetries
+        """
+        #nsym
+        nrot = int(self.datafile_xml.findall("output/symmetries/nrot")[0].text.strip())        
+        self.nsym = int(self.datafile_xml.findall("output/symmetries/nsym")[0].text.strip())        
+        no_t_rev = ( self.datafile_xml.findall("input/symmetry_flags/no_t_rev")[0].text.strip() == "true" )
+        self.nsym_with_trev = 2*self.nsym 
+
+        # data
+        if not no_t_rev: sym_red = np.zeros((self.nsym_with_trev,3,3))
+        else:            sym_red = np.zeros((self.nsym,3,3))
+        symmetries = self.datafile_xml.findall("output/symmetries/symmetry/rotation") # All rotations
+        symmetries = symmetries[:self.nsym] # Retain only point group symmetries with no trev
+        #sym_info   = self.datafile_xml.findall("output/symmetries/symmetry/info")
+        #NB: sym_info[:].attrib['class'] contains irrep names if found
+
+        #read (non-symmorphic) symmetries
+        for i in range(self.nsym):
+            sym = np.array( [float(x) for x in symmetries[i].text.strip().split()] ).reshape(3,3)
+            sym_red[i] = sym.T # symmetries are saved as the transposed in the .xml 
+        self.sym_red = sym_red.astype(int)
+
+        #convert to c.c.
+        self.sym_car = self.sym_red_car()
+
+        #check for time reversal and apply it to sym_car
+        if not no_t_rev: self.apply_t_rev()
+
+    def apply_t_rev(self):
+        """
+        Add T*S rotation matrices
+        """
+        for n in range(self.nsym,self.nsym_with_trev): self.sym_car[n]=-1*self.sym_car[n-self.nsym]
+
+    def sym_red_car(self):
+        """
+        Transform symmetry ops. in Cartesian coordinates
+        """
+        lat = np.array(self.cell)
+        sym_car = np.zeros([len(self.sym_red),3,3],dtype=float)
+        for n,s in enumerate(self.sym_red):
+            sym_car[n] = np.dot( np.linalg.inv(lat), np.dot(s, lat ) ).T
+        return sym_car
+
+    def expand_kpoints_xml(self,atol=1e-6,expand_eigen=True,verbose=0):
+        """
+        Take a list of kpoints and symmetry operations and return the full brillouin zone
+        with the corresponding index in the irreducible brillouin zone
+
+        Expand also eigenvalues by default
+        """
+        alat      = np.array(self.acell)
+        kpts_ibz  = np.array(self.kpoints)
+        eigen_ibz = np.array(self.eigen1)
+        rlat      = np.array(self.rcell)
+
+        self.read_symmetries()
+
+        #check if the kpoints were already exapnded
+        kpoints_indices  = []
+        kpoints_full     = []
+        symmetry_indices = []
+
+        #kpoints in the full brillouin zone organized per index
+        kpoints_full_i = {}
+
+        #expand using symmetries
+        for nk,k in enumerate(kpts_ibz):
+            #if the index in not in the dictionary add a list
+            if nk not in kpoints_full_i:
+                kpoints_full_i[nk] = []
+
+            for ns,sym in enumerate(self.sym_car):
+
+                new_k = np.dot(sym,k)
+
+                #check if the point is inside the bounds
+                k_red = car_red([new_k],rlat)[0]
+                k_bz = (k_red+atol)%1
+
+                #if the vector is not in the list of this index add it
+                if not vec_in_list(k_bz,kpoints_full_i[nk]):
+                    kpoints_full_i[nk].append(k_bz)
+                    kpoints_full.append(new_k)
+                    kpoints_indices.append(nk)
+                    symmetry_indices.append(ns)
+                    continue
+
+        #calculate the weights of each of the kpoints in the irreducible brillouin zone
+        nkpoints_full = len(kpoints_full)
+        weights = np.zeros([nkpoints_full])
+        for nk in kpoints_full_i:
+            weights[nk] = float(len(kpoints_full_i[nk]))/nkpoints_full
+
+        if verbose: print("%d kpoints expanded to %d"%(self.nkpoints,len(kpoints_full)))
+
+        #set the variables
+        self.weights_ibz      = np.array(weights)
+        self.kpoints_indices  = np.array(kpoints_indices)
+        self.symmetry_indices = np.array(symmetry_indices)
+        self.nkbz             = nkpoints_full
+        #cartesian coordinates of QE
+        self.kpoints_bz       = np.array(kpoints_full)
+
+        if expand_eigen:
+
+            self.eigen_bz = np.zeros((self.nkbz,self.nbands))
+            for ik in range(self.nkbz): self.eigen_bz[ik,:] = eigen_ibz[self.kpoints_indices[ik],:]
+            if verbose: print("Eigenvalues also expanded.")

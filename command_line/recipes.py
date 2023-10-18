@@ -237,7 +237,8 @@ def merge_qp(output,files):
         print("=========input=========")
         QP_table, QP_kpts, QP_E, QP_E0, QP_Z = [], [], [], [], []
         for d,filename in zip(datasets,filenames):
-            PARS = list(map(int,d['PARS'][:]))
+            pars_valid = [ par for par in d['PARS'][:] if not  np.ma.is_masked(par) ] # Fix to exclude empty elements in database list (masked by default by python)
+            PARS = list(map(int,pars_valid))
             nkpoints, nqps, nstrings = PARS[1],PARS[2],PARS[-1]
             #_, nkpoints, nqps, _, nstrings = list(map(int,d['PARS'][:]))
             print("filename:    ", filename)
@@ -258,7 +259,8 @@ def merge_qp(output,files):
         for qp_file,kpts in zip(QP_table,QP_kpts):
             #iterate over the kpoints and save the coordinates on the list
             for qp in qp_file:
-                n1,n2,nk = list(map(int,qp))
+                try:               n1,n2,nk = list(map(int,qp))
+                except ValueError: n1,n2,nk,ns = list(map(int,qp))
                 QP_kpts_save[nk-1] = kpts[nk-1]
 
         # create the QPs energies table
@@ -349,7 +351,7 @@ def add_qp(output,add=[],substract=[],addimg=[],verbose=False):
     addimgf=[f.name for f in addimg]
     filenames = addf+subf+addimgf
 
-    if len(filenames) is 0:
+    if len(filenames) == 0:
         raise ValueError('No files passed to function.')
 
 
